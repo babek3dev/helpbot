@@ -3,6 +3,8 @@ from collections import defaultdict, deque
 import threading
 import time
 
+print('Бот запущен ✅')
+
 TOKEN = '7298955377:AAERBmimaPqOPTEPBfqhfBB6IcetrVZeMb4'
 bot = telebot.TeleBot(TOKEN)
 
@@ -65,38 +67,40 @@ def handle_all_messages(message):
 
     if message.content_type == 'text':
         text = message.text.lower().strip()
+        username = message.from_user.username or message.from_user.first_name
 
         if 'http://' in text or 'https://' in text or 't.me/' in text:
             try:
                 bot.delete_message(chat_id, msg_id)
-                bot.send_message(chat_id, f"🚫 @{message.from_user.username}, в чате запрещены ссылки.")
+                bot.send_message(chat_id, f"🚫 @{username}, в чате запрещены ссылки.")
                 return
             except:
                 return
 
-        if 'Бот привет' in text:
+        if 'бот привет' in text:
             bot.reply_to(message, "Здраствуй мабой, 👋")
-        elif 'Бот как дела' in text:
+        elif 'бот как дела' in text:
             bot.reply_to(message, "Норм, сам как? 😎")
-        elif 'Бот что делаешь' in text:
+        elif 'бот что делаешь' in text:
             bot.reply_to(message, "Слежу за чатом 👀")
-        elif 'Бот спишь' in text:
+        elif 'бот спишь' in text:
             bot.reply_to(message, "Боты не спят 😴")
-        elif 'Бот кто ты' in text:
+        elif 'бот кто ты' in text:
             bot.reply_to(message, "Я бот, твой защитник от спама 🤖")
         elif 'бот' in text and 'тупой' in text:
             bot.reply_to(message, "Сам ты такой 😤")
-        elif 'Бот спасибо' in text:
+        elif 'бот спасибо' in text:
             bot.reply_to(message, "Всегда пожалуйста 😊")
-        elif 'Бот инфа' in text:
+        elif 'бот инфа' in text:
             bot.reply_to(message, "Я бот-помощник для этого чата, мои создатели: @noname_genius и @jnnnnnjj")
-        elif 'Бот что ты умеешь' in text:
+        elif 'бот что ты умеешь' in text:
             bot.reply_to(message, "Я умею следить за чатом, общаться)")
-        elif text == 'Гигачад':
+        elif text == 'гигачад':
             bot.reply_to(message, "Я тут")
 
 def unlock_user(user_id):
     time.sleep(LOCK_TIME)
     user_locked[user_id] = False
+    print(f"✅ Пользователь {user_id} разблокирован")
 
 bot.polling(none_stop=True)
