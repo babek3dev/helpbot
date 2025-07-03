@@ -1,106 +1,82 @@
 import telebot
-from collections import defaultdict, deque
-import threading
+from collections import defaultdict
 import time
+import threading
+import re
 
-print('Бот запущен ✅')
+TOKEN = '7298955377:AAERBmimaPqOPTEPBfqhfBB6IcetrVZeMb4
+bot = telebot.TeleBot(TOKEN, parse_mode='HTML')
 
-TOKEN = '7298955377:AAERBmimaPqOPTEPBfqhfBB6IcetrVZeMb4'
-bot = telebot.TeleBot(TOKEN)
+SPAM_INTERVAL = 1.0  # интервал между сообщениями (сек)
+MAX_WARNS = 3
 
-user_contents = defaultdict(lambda: deque(maxlen=5))
-user_message_ids = defaultdict(lambda: deque(maxlen=5))
-user_locked = defaultdict(bool)
+last_message_time = defaultdict(float)
 user_warns = defaultdict(int)
 
-MAX_WARNS = 3
-LOCK_TIME = 5
+# регулярка для ссылок
+link_regex = re.compile(
+    r'(?i)(https?://|www\.|t\.me/|telegram\.me/|tg://|discord\.gg/|'
+    r'\b[a-z0-9\-_]+\.(ru|su|com|net|org|info|biz|io|me|gg|ly|xyz|top|app)\b)'
+)
 
-@bot.message_handler(content_types=['text', 'sticker'])
-def handle_all_messages(message):
-    if message.chat.type not in ['group', 'supergroup']:
+@bot.message_handler(content_types=['text', 'sticker','gif'])
+def handle_message(message):
+    if message.chat.type not in ('group', 'supergroup'):
         return
 
     user_id = message.from_user.id
     chat_id = message.chat.id
     msg_id = message.message_id
+    key = (chat_id, user_id)
+    now = time.time()
 
+    elapsed = now - last_message_time[key]
+    last_message_time[key] = now
+
+    # Удаляем, если отправлено слишком быстро после предыдущего
+    if elapsed < SPAM_INTERVAL:
+        threading.Thread(target=try_delete, args=(chat_id, msg_id)).start()
+        warn_user(chat_id, user_id, message.from_user)
+        return
+
+    # Проверка на ссылки
     if message.content_type == 'text':
-        content = f"text:{message.text.strip().lower()}"
-    elif message.content_type == 'sticker':
-        content = f"sticker:{message.sticker.file_unique_id}"
+        text = message.text.lower()
+        if link_regex.search(text):
+            threading.Thread(target=try_delete, args=(chat_id, msg_id)).start()
+            bot.send_message(chat_id, f"🚫 @{get_username(message.from_user)}, ссылки у нас запрещены.")
+            return
+
+        # Ответы бота
+        if 'бот кто ты' in text:
+            bot.reply_to(message, "Я Антиспам бот 🤖")
+        elif 'бот привет' in text:
+            bot.reply_to(message, "Здраствуй, мабой 👋")
+
+def try_delete(chat_id, msg_id):
+    try:
+        bot.delete_message(chat_id, msg_id)
+    except Exception as e:
+        print(f"Ошибка удаления: {e}")
+
+def warn_user(chat_id, user_id, user_obj):
+    key = (chat_id, user_id)
+    user_warns[key] += 1
+    warns = user_warns[key]
+    username = get_username(user_obj)
+
+    if warns >= MAX_WARNS:
+        bot.send_message(chat_id, f"🚫 @{username}, это третье предупреждение — бан.")
+        try:
+            bot.ban_chat_member(chat_id, user_id)
+        except Exception as e:
+            print(f"Ошибка бана: {e}")
+        user_warns[key] = 0
     else:
-        return
+        bot.send_message(chat_id,
+                         f"⚠️ @{username}, не спамь. Варны: {warns}/{MAX_WARNS}")
 
-    if user_locked[user_id]:
-        return
+def get_username(user):
+    return user.username or user.first_name
 
-    user_contents[user_id].append(content)
-    user_message_ids[user_id].append(msg_id)
-
-    if len(user_contents[user_id]) == 5 and len(set(user_contents[user_id])) == 1:
-        for mid in list(user_message_ids[user_id]):
-            try:
-                bot.delete_message(chat_id, mid)
-            except:
-                pass
-
-        user_warns[user_id] += 1
-        warns = user_warns[user_id]
-        username = message.from_user.username or message.from_user.first_name
-
-        if warns >= MAX_WARNS:
-            bot.send_message(chat_id, f"🚫 @{username}, у вас {warns} варнов. Вы заблокированы.")
-            try:
-                bot.ban_chat_member(chat_id, user_id)
-            except:
-                pass
-            user_locked[user_id] = True
-            threading.Thread(target=unlock_user, args=(user_id,)).start()
-        else:
-            bot.send_message(chat_id, f"⚠️ @{username}, предупреждение за спам. Варны: {warns}/{MAX_WARNS}")
-            user_locked[user_id] = True
-            threading.Thread(target=unlock_user, args=(user_id,)).start()
-
-        user_contents[user_id].clear()
-        user_message_ids[user_id].clear()
-
-    if message.content_type == 'text':
-        text = message.text.lower().strip()
-        username = message.from_user.username or message.from_user.first_name
-
-        if 'http://' in text or 'https://' in text or 't.me/' in text:
-            try:
-                bot.delete_message(chat_id, msg_id)
-                bot.send_message(chat_id, f"🚫 @{username}, в чате запрещены ссылки.")
-                return
-            except:
-                return
-
-        if 'бот привет' in text:
-            bot.reply_to(message, "Здраствуй мабой, 👋")
-        elif 'бот как дела' in text:
-            bot.reply_to(message, "Норм, сам как? 😎")
-        elif 'бот что делаешь' in text:
-            bot.reply_to(message, "Слежу за чатом 👀")
-        elif 'бот спишь' in text:
-            bot.reply_to(message, "Боты не спят 😴")
-        elif 'бот кто ты' in text:
-            bot.reply_to(message, "Я бот, твой защитник от спама 🤖")
-        elif 'бот' in text and 'тупой' in text:
-            bot.reply_to(message, "Сам ты такой 😤")
-        elif 'бот спасибо' in text:
-            bot.reply_to(message, "Всегда пожалуйста 😊")
-        elif 'бот инфа' in text:
-            bot.reply_to(message, "Я бот-помощник для этого чата, мои создатели: @noname_genius и @jnnnnnjj")
-        elif 'бот что ты умеешь' in text:
-            bot.reply_to(message, "Я умею следить за чатом, общаться)")
-        elif text == 'гигачад':
-            bot.reply_to(message, "Я тут")
-
-def unlock_user(user_id):
-    time.sleep(LOCK_TIME)
-    user_locked[user_id] = False
-    print(f"✅ Пользователь {user_id} разблокирован")
-
-bot.polling(none_stop=True)
+bot.polling(none_stop=True, skip_pending=True)
