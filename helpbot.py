@@ -4,7 +4,7 @@ import time
 import threading
 import re
 
-TOKEN = '7298955377:AAERBmimaPqOPTEPBfqhfBB6IcetrVZeMb4
+TOKEN = '7298955377:AAERBmimaPqOPTEPBfqhfBB6IcetrVZeMb4'
 bot = telebot.TeleBot(TOKEN, parse_mode='HTML')
 
 SPAM_INTERVAL = 1.0  # интервал между сообщениями (сек)
