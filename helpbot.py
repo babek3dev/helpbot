@@ -74,11 +74,11 @@ def warn_user(chat_id, user_id, user_obj):
     
     if warns >= MAX_WARNS:
         # Бан пользователя
-        bot.send_message(chat_id, f"🚫 @{username}, это третье предупреждение — муь.")
+        bot.send_message(chat_id, f"🚫 @{username}, это третье предупреждение — бан.")
         try:
-            bot.mute_chat_member(chat_id, user_id)
+            bot.ban_chat_member(chat_id, user_id)
         except Exception as e:
-            print(f"Ошибка мута: {e}")
+            print(f"Ошибка бана: {e}")
         # Сбрасываем счетчик
         user_warns[key] = 0
         # Удаляем запись о сообщении с варном
