@@ -7,7 +7,7 @@ import re
 TOKEN = '7298955377:AAERBmimaPqOPTEPBfqhfBB6IcetrVZeMb4'
 bot = telebot.TeleBot(TOKEN, parse_mode='HTML')
 
-SPAM_INTERVAL = 0.5  # интервал между сообщениями (сек)
+SPAM_INTERVAL = 0.7  # интервал между сообщениями (сек)
 MAX_WARNS = 3
 
 last_message_time = defaultdict(float)
